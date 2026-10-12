@@ -42,3 +42,15 @@ Notes: [Reports/notes.md](Reports/notes.md)
 
 ### 12. room completion
 ![room completion](ScreenShots/12_room_completion.png)
+
+### 13. devtools request headers
+![devtools request headers](ScreenShots/13_devtools_request_headers.png)
+
+### 14. devtools cookies
+![devtools cookies](ScreenShots/14_devtools_cookies.png)
+
+### 15. curl headers
+![curl headers](ScreenShots/15_curl_headers.png)
+
+### 16. securityheaders scan
+![securityheaders scan](ScreenShots/16_securityheaders_scan.png)

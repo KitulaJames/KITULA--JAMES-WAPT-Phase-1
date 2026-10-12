@@ -250,7 +250,7 @@ Command run: `curl -I https://example.com`
 ## 11. Result
 Completed the room (100%) and sent GET, POST and DELETE requests to a demo API. Inspected real request and response headers and cookies on a live website.
 
-![Room completed](../ScreenShots/12_room_completed_100.png)
+![Room completed](../ScreenShots/12_room_completion.png)
 
 ## 12. Questions I Found Hard
 -
