@@ -2,7 +2,7 @@
 
 **Platform:** TryHackMe
 **Room:** https://tryhackme.com/room/webapplicationbasics
-**Difficulty:** Easy | **Date completed:** ____________
+**Difficulty:** Easy | **Date completed:** 9/10/2026
 
 ---
 
@@ -53,7 +53,17 @@ Example: `https://admin@example.com:443/products/view?id=5#reviews`
 **Typosquatting:** registering misspelt versions of popular domains to catch typing mistakes and run fraud or phishing.
 
 **My own URL broken into parts:**
-`__________________________________________`
+`https://tryhackme.com/room/webapplicationbasics`
+
+| Part | Value in my URL |
+|---|---|
+| Scheme | https |
+| User | none |
+| Host | tryhackme.com |
+| Port | 443 (default for HTTPS, not written in the URL) |
+| Path | /room/webapplicationbasics |
+| Query string | none |
+| Fragment | none |
 
 ![URL anatomy](../ScreenShots/02_url_anatomy_answers.png)
 
@@ -193,14 +203,14 @@ I used the in-room split view to send requests to a demo API.
 
 | # | Request | What I did | Result / Flag |
 |---|---|---|---|
-| 1 | `GET /api/users` | Retrieved the list of users | ____________ |
-| 2 | `POST /api/user/2` | Updated Bob's country from UK to US | ____________ |
-| 3 | `DELETE /api/user/1` | Deleted user 1 | ____________ |
+| 1 | `GET /api/users` | Retrieved the list of users | THM{YOU_HAVE_JUST_FOUND_THE_USER_LIST} |
+| 2 | `POST /api/user/2` | Updated Bob's country from UK to US | THM{YOU_HAVE_MODIFIED_THE_USER_DATA} |
+| 3 | `DELETE /api/user/1` | Deleted user 1 | THM{YOU_HAVE_JUST_DELETED_A_USER} |
 
-**What I observed about each method (own words):**
-- GET: ______________________________
-- POST: ______________________________
-- DELETE: ______________________________
+**What I observed about each method:**
+- GET: it only reads data. It returned the user list and did not change anything on the server.
+- POST: it sends data in the request body. The server used it to change Bob's country from UK to US.
+- DELETE: it removed a record from the server. Without a login and permission check, anyone could delete other users, so this method must be protected.
 
 **Security thinking:** DELETE and POST changed data. A real application must check that the user is logged in and allowed to do this, otherwise anyone could modify or delete other users' data.
 
@@ -213,29 +223,80 @@ I used the in-room split view to send requests to a demo API.
 ## 9. Extra Practice (my own)
 
 ### 9.1 Browser DevTools (F12 > Network)
-- Site tested: ____________
-- Request method and status code seen: ____________
-- Interesting request headers: ____________
-- Interesting response headers (Server, Set-Cookie, Content-Type): ____________
-- Cookies found and their flags (Secure / HttpOnly): ____________
+- **Site tested:** tryhackme.com, page `/room/webapplicationbasics`
+- **Method and status code:** `GET`, HTTP/2. The main document request returned an early `103` (Early Hints), then `304 Not Modified`. The scripts, stylesheets and fonts were also `GET` requests with status `200`.
+- **Why 304:** my browser sent `If-None-Match: W/"x3ls4ptj1e2enc"` (the ETag of the copy it had saved). The server saw the page had not changed and sent no body, so the Transferred column shows "cached" (14.28 kB sent for a 112.30 kB page). 103 lets the browser start loading files before the full response is ready.
+- **Page summary:** 264 requests, 4.83 MB in total but only 278.41 kB transferred, because most files came from the cache. The page also loads files from other domains (cdn.growthbook.io, fonts.googleapis.com), which widens the attack surface.
+
+**Interesting request headers**
+| Header | Value | Meaning |
+|---|---|---|
+| Host | tryhackme.com | Which site the request is for |
+| Accept | text/html,application/xhtml+xml,... | File types my browser can handle |
+| Accept-Encoding | gzip, deflate, br, zstd | Compression the browser supports |
+| Accept-Language | en-US,en;q=0.5 | My preferred language |
+| Connection | keep-alive | Reuse the same connection for more requests |
+| If-None-Match | W/"x3ls4ptj1e2enc" | Asks "has this page changed since this version?" (caused the 304) |
+| Cookie | (many cookies; values hidden) | Sends back what the site stored earlier, including a session ID |
+
+**Interesting response headers**
+| Header | Value | Meaning |
+|---|---|---|
+| server | Vercel | Reveals the hosting platform; the Server header can leak information |
+| cache-control | public, max-age=0, must-revalidate | The page may be cached, but must be checked with the server each time |
+| date | Mon, 12 Oct 2026 07:08:32 GMT | When the response was made |
+| x-vercel-cache | STALE | The CDN served a saved copy |
+| x-vercel-id | cpt1::dub1::... | Vercel's internal request ID (shows which edge servers were used) |
+
+Other things I noticed: the Referrer Policy is `strict-origin-when-cross-origin`, and the Response tab shows the raw HTML starting with `<!DOCTYPE html>` and CSS style rules in the page.
+
+**Cookies found (Request Cookies tab)**
+| Type | Cookie names |
+|---|---|
+| Session / security | `connect.sid` (session ID), `_csrf` (anti-CSRF token), `thm-aid` |
+| Analytics and tracking | `_ga`, `_ga_Z8D4WL3D4P`, `__hstc`, `_hjSessionUser_1950941`, `ajs_anonymous_id`, `ajs_user_id`, `analytics_session_id`, `_gcl_au` |
+| Marketing | `_fbp`, `_rdt_uuid`, `_rdt_em`, `_cioid` |
+| Preferences | `cookie_consent_preferences`, `cookieconsent_status`, `g_state` |
+
+- **Session cookie flags (Storage tab, `connect.sid`):**
+
+| Attribute | Value | Meaning |
+|---|---|---|
+| Domain | .tryhackme.com | Sent to tryhackme.com and all its subdomains |
+| Path | / | Sent with every request on the site |
+| Created / Expires | Sat 03 Oct 2026 / Fri 16 Oct 2026 | The session lasts about 13 days |
+| HttpOnly | true | JavaScript cannot read this cookie, which protects it from XSS theft |
+| Secure | false | The cookie can also be sent over plain HTTP, so it could be sniffed on an insecure network |
+| SameSite | None | The cookie is sent on cross-site requests too, which increases CSRF risk (the site also uses a `_csrf` token) |
+
+- **Observation:** the session cookie has `HttpOnly` but is missing `Secure`, and uses `SameSite=None`. A session cookie should normally have `HttpOnly` and `Secure`, and `SameSite=Lax` or `Strict` unless cross-site use is needed. This is a real-world example of the cookie flags the room taught.
+- **Why session cookies are sensitive:** anyone who gets the `connect.sid` value can act as the logged-in user. For that reason I did not include cookie values in my report.
 
 ![DevTools headers](../ScreenShots/13_devtools_request_headers.png)
 ![DevTools cookies](../ScreenShots/14_devtools_cookies.png)
 
 ### 9.2 curl
-Command run: `curl -I https://example.com`
+Command run: `curl -v https://tryhackme.com/room/webapplicationbasics`
+
+What happened: curl connected with TLS 1.3 over HTTP/2. The certificate was issued by Let's Encrypt and verified. My request was `GET /room/webapplicationbasics`, sent with `User-Agent: curl/8.21.0`. The server answered `HTTP/2 429` with a "Vercel Security Checkpoint" page instead of the room, because it saw an automated client and asked for a browser check.
 
 | Header seen | Value | Meaning |
 |---|---|---|
-| | | |
-| | | |
+| (status line) | HTTP/2 429 | 4xx client error: too many or suspicious requests, so the request was challenged |
+| content-type | text/html; charset=utf-8 | The body is an HTML page in UTF-8 |
+| server | Vercel | Reveals the hosting platform (information an attacker can use) |
+| cache-control | private, no-store, max-age=0 | The response must not be cached |
+| x-vercel-mitigated | challenge | A bot-protection rule (a WAF-style defence) blocked my curl request |
+| date | Mon, 12 Oct 2026 06:55:26 GMT | When the server generated the response |
 
 ![curl output](../ScreenShots/15_curl_headers.png)
 
 ### 9.3 Security headers scan
-- Site scanned: ____________ | Grade: ____
-- Headers present: ____________
-- Headers missing and the risk: ____________
+- Site scanned: https://tryhackme.com/room/webapplicationbasics | Grade: F (scan time 12 Oct 2026, 06:56 UTC)
+- Headers present: none of the security headers were found. The `server` header (Vercel) was visible, and the `set-cookie` header had `HttpOnly`, `Secure` and `SameSite=None`.
+- Headers missing: Strict-Transport-Security, Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
+- Risk: no CSP gives less protection against XSS; no HSTS lets a browser use plain HTTP; no X-Frame-Options allows clickjacking; no nosniff allows MIME sniffing.
+- Important note: the scanner warned "Status code indicates error". The scanner received the same Vercel security checkpoint page (HTTP 429) that curl got, not the real room page. So the F grade does not prove the real site is missing these headers. I would scan a normal public site to compare.
 
 ![Security headers scan](../ScreenShots/16_securityheaders_scan.png)
 
@@ -253,10 +314,10 @@ Completed the room (100%) and sent GET, POST and DELETE requests to a demo API. 
 ![Room completed](../ScreenShots/12_room_completion.png)
 
 ## 12. Questions I Found Hard
--
+- Why did curl return 429 instead of the room page? The site uses bot protection (Vercel security checkpoint), which shows that a WAF-style defence can block automated tools while browsers pass.
 
-## 13. Key Learnings (own words)
-1.
-2.
-3.
-4.
+## 13. Key Learnings
+1. A web app has a front end (HTML, CSS, JavaScript) that I can see and a back end (server, database, WAF) that I cannot, so security checks must be enforced on the back end.
+2. GET, POST and DELETE do different jobs. In the API emulator, POST changed Bob's data and DELETE removed a user, so a real server must check who is allowed to do these actions.
+3. Headers and cookies carry security information. curl showed `server: Vercel` leaking the hosting platform, and the response cookie had `HttpOnly` and `Secure` flags, which protect it from JavaScript theft and from being sent over HTTP.
+4. Status codes tell me what happened. My curl request got 429 because bot protection challenged it, and I learned that scan tools can report misleading results when they hit a challenge page instead of the real site.
