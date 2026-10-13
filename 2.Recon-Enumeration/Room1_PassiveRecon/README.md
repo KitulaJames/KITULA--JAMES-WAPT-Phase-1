@@ -42,3 +42,6 @@ Notes: [Reports/notes.md](Reports/notes.md)
 
 ### 12. room completion
 ![room completion](ScreenShots/12_room_completion.png)
+
+### 13. extra second domain
+![extra second domain](ScreenShots/13_extra_second_domain.png)
