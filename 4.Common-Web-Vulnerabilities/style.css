@@ -1,0 +1,6 @@
+body { font-family: Arial, sans-serif; max-width: 820px; margin: auto; line-height: 1.5; font-size: 14px; }
+img { max-width: 100%; border: 1px solid #ccc; }
+h1, h2 { border-bottom: 2px solid #1f3a5f; color: #1f3a5f; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border: 1px solid #bbb; padding: 4px 8px; }
+th { background: #eef2f7; }
